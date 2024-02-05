@@ -1,4 +1,4 @@
-from flask import current_app as app, request, abort, jsonify
+from flask import current_app as app, request, abort, jsonify, make_response
 from marshmallow.exceptions import ValidationError
 from sqlalchemy import exc
 from paralympics import db
@@ -164,13 +164,16 @@ def delete_region(noc_code):
     Returns:
         JSON
     """
-    region = db.session.execute(db.select(Region).filter_by(NOC=noc_code)).scalar_one()
-    if region:
+    try:
+        region = db.session.execute(db.select(Region).filter_by(NOC=noc_code)).scalar_one()
         db.session.delete(region)
         db.session.commit()
         return {"message": f"Region {noc_code} deleted."}
-    else:
-        abort(404, description="Region not found")
+    except exc.SQLAlchemyError as e:
+        app.logger.error(f"A database error occurred: {str(e)}")
+        msg_content = f'Region {noc_code} not found'
+        msg = {'message': msg_content}
+        return make_response(msg, 404)
 
 
 @app.patch("/events/<event_id>")

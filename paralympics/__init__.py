@@ -4,6 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from sqlalchemy.orm import DeclarativeBase
 
+from logging.config import dictConfig
+from flask import jsonify
 
 # https://flask-sqlalchemy.palletsprojects.com/en/3.1.x/quickstart/
 class Base(DeclarativeBase):
@@ -18,8 +20,31 @@ db = SQLAlchemy(model_class=Base)
 # See https://flask-marshmallow.readthedocs.io/en/latest/#optional-flask-sqlalchemy-integration
 ma = Marshmallow()
 
+def handle_404_error(e):
+    return jsonify(error=str(e)), 404
 
 def create_app(test_config=None):
+
+    dictConfig({
+        'version': 1,
+        'formatters': {'default': {
+            'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+        }},
+        'handlers':
+            {'wsgi': {
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://flask.logging.wsgi_errors_stream',
+                'formatter': 'default'
+            },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "filename": "paralympics_log.log",
+                    "formatter": "default",
+                },
+            },
+        "root": {"level": "DEBUG", "handlers": ["wsgi", "file"]},
+    })
+    
     # create and configure the app
     app = Flask('paralympics', instance_relative_config=True)
     app.config.from_mapping(
@@ -61,6 +86,8 @@ def create_app(test_config=None):
 
         # Register the routes with the app in the context
         from paralympics import routes
+
+    app.register_error_handler(404, handle_404_error)
 
     return app
 
